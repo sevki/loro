@@ -44,8 +44,7 @@ impl HandleStorage {
 
     fn register_text(&mut self, name: String) -> Result<u64, &'static str> {
         let id = self.next_id;
-        self.next_id = self
-            .next_id
+        self.next_id = id
             .checked_add(1)
             .ok_or("Handle ID counter overflow")?;
         self.text_names.insert(id, name);
@@ -54,8 +53,7 @@ impl HandleStorage {
 
     fn register_map(&mut self, name: String) -> Result<u64, &'static str> {
         let id = self.next_id;
-        self.next_id = self
-            .next_id
+        self.next_id = id
             .checked_add(1)
             .ok_or("Handle ID counter overflow")?;
         self.map_names.insert(id, name);
@@ -64,8 +62,7 @@ impl HandleStorage {
 
     fn register_list(&mut self, name: String) -> Result<u64, &'static str> {
         let id = self.next_id;
-        self.next_id = self
-            .next_id
+        self.next_id = id
             .checked_add(1)
             .ok_or("Handle ID counter overflow")?;
         self.list_names.insert(id, name);
