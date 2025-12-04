@@ -50,9 +50,7 @@ fn main() -> Result<()> {
     wasmtime_wasi::add_to_linker_sync(&mut linker)?;
 
     // Create the store with WASI context
-    let wasi_ctx = WasiCtxBuilder::new()
-        .inherit_stdio()
-        .build();
+    let wasi_ctx = WasiCtxBuilder::new().inherit_stdio().build();
     let state = MyState {
         ctx: wasi_ctx,
         table: ResourceTable::new(),
@@ -78,9 +76,11 @@ fn main() -> Result<()> {
 
     // Working with Text
     println!("2. Working with Text container...");
-    let text_handle = doc_interface.doc().call_get_text(&mut store, doc, "my-text")?;
-    text_interface.call_insert(&mut store, doc, text_handle, 0, "Hello, ")?;
-    text_interface.call_insert(&mut store, doc, text_handle, 7, "World!")?;
+    let text_handle = doc_interface
+        .doc()
+        .call_get_text(&mut store, doc, "my-text")?;
+    let _ = text_interface.call_insert(&mut store, doc, text_handle, 0, "Hello, ")?;
+    let _ = text_interface.call_insert(&mut store, doc, text_handle, 7, "World!")?;
     let text_content = text_interface.call_to_string(&mut store, doc, text_handle)?;
     let text_len_utf8 = text_interface.call_len_utf8(&mut store, doc, text_handle)?;
     let text_len_unicode = text_interface.call_len_unicode(&mut store, doc, text_handle)?;
@@ -90,10 +90,12 @@ fn main() -> Result<()> {
 
     // Working with Map
     println!("3. Working with Map container...");
-    let map_handle = doc_interface.doc().call_get_map(&mut store, doc, "my-map")?;
-    map_interface.call_insert_string(&mut store, doc, map_handle, "name", "Loro")?;
-    map_interface.call_insert_number(&mut store, doc, map_handle, "version", 1.10)?;
-    map_interface.call_insert_bool(&mut store, doc, map_handle, "isAwesome", true)?;
+    let map_handle = doc_interface
+        .doc()
+        .call_get_map(&mut store, doc, "my-map")?;
+    let _ = map_interface.call_insert_string(&mut store, doc, map_handle, "name", "Loro")?;
+    let _ = map_interface.call_insert_number(&mut store, doc, map_handle, "version", 1.10)?;
+    let _ = map_interface.call_insert_bool(&mut store, doc, map_handle, "isAwesome", true)?;
     let keys = map_interface.call_keys(&mut store, doc, map_handle)?;
     let name = map_interface.call_get(&mut store, doc, map_handle, "name")?;
     let version = map_interface.call_get(&mut store, doc, map_handle, "version")?;
@@ -105,10 +107,12 @@ fn main() -> Result<()> {
 
     // Working with List
     println!("4. Working with List container...");
-    let list_handle = doc_interface.doc().call_get_list(&mut store, doc, "my-list")?;
-    list_interface.call_push_string(&mut store, doc, list_handle, "first")?;
-    list_interface.call_push_number(&mut store, doc, list_handle, 42.0)?;
-    list_interface.call_insert_string(&mut store, doc, list_handle, 0, "zeroth")?;
+    let list_handle = doc_interface
+        .doc()
+        .call_get_list(&mut store, doc, "my-list")?;
+    let _ = list_interface.call_push_string(&mut store, doc, list_handle, "first")?;
+    let _ = list_interface.call_push_number(&mut store, doc, list_handle, 42.0)?;
+    let _ = list_interface.call_insert_string(&mut store, doc, list_handle, 0, "zeroth")?;
     let list_len = list_interface.call_len(&mut store, doc, list_handle)?;
     let item0 = list_interface.call_get(&mut store, doc, list_handle, 0)?;
     let item1 = list_interface.call_get(&mut store, doc, list_handle, 1)?;
@@ -120,7 +124,9 @@ fn main() -> Result<()> {
 
     // Commit changes
     println!("5. Committing changes...");
-    doc_interface.doc().call_commit(&mut store, doc, Some("Initial data setup"))?;
+    doc_interface
+        .doc()
+        .call_commit(&mut store, doc, Some("Initial data setup"))?;
     println!("   Changes committed!\n");
 
     // Export and show document state
@@ -138,7 +144,9 @@ fn main() -> Result<()> {
     let doc2 = doc_interface.doc().call_constructor(&mut store)?;
     let peer_id2 = doc_interface.doc().call_peer_id(&mut store, doc2)?;
     println!("   Doc2 peer ID: {}", peer_id2);
-    doc_interface.doc().call_import_updates(&mut store, doc2, &updates)?;
+    let _ = doc_interface
+        .doc()
+        .call_import_updates(&mut store, doc2, &updates)?;
     let doc2_json = doc_interface.doc().call_to_json(&mut store, doc2)?;
     println!("   Doc2 after import: {}\n", doc2_json);
 
@@ -147,9 +155,13 @@ fn main() -> Result<()> {
     let forked = doc_interface.doc().call_fork(&mut store, doc)?;
     let forked_peer_id = doc_interface.doc().call_peer_id(&mut store, forked)?;
     println!("   Forked doc peer ID: {}", forked_peer_id);
-    let forked_text = doc_interface.doc().call_get_text(&mut store, forked, "my-text")?;
-    text_interface.call_insert(&mut store, forked, forked_text, 0, "[Forked] ")?;
-    doc_interface.doc().call_commit(&mut store, forked, Some("Forked edit"))?;
+    let forked_text = doc_interface
+        .doc()
+        .call_get_text(&mut store, forked, "my-text")?;
+    let _ = text_interface.call_insert(&mut store, forked, forked_text, 0, "[Forked] ")?;
+    doc_interface
+        .doc()
+        .call_commit(&mut store, forked, Some("Forked edit"))?;
     let forked_text_content = text_interface.call_to_string(&mut store, forked, forked_text)?;
     println!("   Forked text: \"{}\"\n", forked_text_content);
 
