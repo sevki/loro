@@ -1,0 +1,203 @@
+package component:loro-wit;
+
+/// Core types used across the Loro CRDT interface
+interface types {
+    /// A unique peer identifier (64-bit unsigned integer as string for compatibility)
+    type peer-id = string;
+    
+    /// An operation ID consisting of peer and counter
+    record op-id {
+        peer: peer-id,
+        counter: s32,
+    }
+    
+    /// Version vector entry
+    record version-vector-entry {
+        peer: peer-id,
+        counter: s32,
+    }
+    
+    /// Version vector type
+    type version-vector = list<version-vector-entry>;
+    
+    /// Frontiers type (list of operation IDs)
+    type frontiers = list<op-id>;
+    
+    /// Export mode for exporting document data
+    enum export-mode {
+        snapshot,
+        updates,
+        all-updates,
+    }
+    
+    /// Error type for Loro operations
+    variant loro-error {
+        encoding-error(string),
+        decoding-error(string),
+        transaction-error(string),
+        container-error(string),
+        invalid-argument(string),
+        out-of-bounds(string),
+    }
+}
+
+/// The main LoroDoc interface for document operations
+interface doc {
+    use types.{peer-id, version-vector, frontiers, export-mode, loro-error};
+    
+    /// Handle to a Loro document
+    resource loro-doc {
+        /// Create a new empty document
+        constructor();
+        
+        /// Get the peer ID of this document
+        peer-id: func() -> peer-id;
+        
+        /// Set the peer ID of this document
+        set-peer-id: func(peer: u64) -> result<_, loro-error>;
+        
+        /// Get a text container by name
+        get-text: func(name: string) -> loro-text;
+        
+        /// Get a map container by name  
+        get-map: func(name: string) -> loro-map;
+        
+        /// Get a list container by name
+        get-list: func(name: string) -> loro-list;
+        
+        /// Commit pending changes
+        commit: func();
+        
+        /// Export the document as snapshot bytes
+        export-snapshot: func() -> result<list<u8>, loro-error>;
+        
+        /// Export all updates as bytes
+        export-updates: func() -> result<list<u8>, loro-error>;
+        
+        /// Import data into the document
+        import-bytes: func(data: list<u8>) -> result<_, loro-error>;
+        
+        /// Get the current version vector of the OpLog
+        oplog-version: func() -> version-vector;
+        
+        /// Get the current frontiers of the document state
+        state-frontiers: func() -> frontiers;
+        
+        /// Get the deep value of the entire document as JSON string
+        get-deep-value-json: func() -> string;
+        
+        /// Fork the document (create a copy with a new peer ID)
+        fork: func() -> loro-doc;
+        
+        /// Check if the document is detached
+        is-detached: func() -> bool;
+        
+        /// Attach the document to the latest version
+        attach: func();
+        
+        /// Detach the document from the latest version  
+        detach: func();
+    }
+    
+    /// Handle to a Loro text container
+    resource loro-text {
+        /// Insert text at the given position (Unicode index)
+        insert: func(pos: u32, text: string) -> result<_, loro-error>;
+        
+        /// Delete text at the given position
+        delete: func(pos: u32, len: u32) -> result<_, loro-error>;
+        
+        /// Get the text content as a string
+        to-string: func() -> string;
+        
+        /// Get the length of the text (in Unicode characters)
+        len-unicode: func() -> u32;
+        
+        /// Get the length of the text (in UTF-8 bytes)
+        len-utf8: func() -> u32;
+        
+        /// Check if the text is empty
+        is-empty: func() -> bool;
+    }
+    
+    /// Handle to a Loro map container
+    resource loro-map {
+        /// Insert or update a string value in the map
+        insert-string: func(key: string, value: string) -> result<_, loro-error>;
+        
+        /// Insert or update an integer value in the map
+        insert-i64: func(key: string, value: s64) -> result<_, loro-error>;
+        
+        /// Insert or update a float value in the map
+        insert-f64: func(key: string, value: f64) -> result<_, loro-error>;
+        
+        /// Insert or update a boolean value in the map
+        insert-bool: func(key: string, value: bool) -> result<_, loro-error>;
+        
+        /// Insert null value in the map
+        insert-null: func(key: string) -> result<_, loro-error>;
+        
+        /// Delete a key from the map
+        delete: func(key: string) -> result<_, loro-error>;
+        
+        /// Get a value by key as JSON string
+        get-json: func(key: string) -> option<string>;
+        
+        /// Get all keys in the map
+        keys: func() -> list<string>;
+        
+        /// Get the number of entries in the map
+        len: func() -> u32;
+        
+        /// Check if the map is empty
+        is-empty: func() -> bool;
+        
+        /// Get the deep value of the map as JSON string
+        get-deep-value-json: func() -> string;
+    }
+    
+    /// Handle to a Loro list container
+    resource loro-list {
+        /// Insert a string value at the given position
+        insert-string: func(pos: u32, value: string) -> result<_, loro-error>;
+        
+        /// Insert an integer value at the given position
+        insert-i64: func(pos: u32, value: s64) -> result<_, loro-error>;
+        
+        /// Insert a float value at the given position
+        insert-f64: func(pos: u32, value: f64) -> result<_, loro-error>;
+        
+        /// Insert a boolean value at the given position
+        insert-bool: func(pos: u32, value: bool) -> result<_, loro-error>;
+        
+        /// Insert null at the given position
+        insert-null: func(pos: u32) -> result<_, loro-error>;
+        
+        /// Delete items from the list
+        delete: func(pos: u32, len: u32) -> result<_, loro-error>;
+        
+        /// Get a value by index as JSON string
+        get-json: func(index: u32) -> option<string>;
+        
+        /// Push a string value to the end of the list
+        push-string: func(value: string) -> result<_, loro-error>;
+        
+        /// Push an integer value to the end of the list
+        push-i64: func(value: s64) -> result<_, loro-error>;
+        
+        /// Get the length of the list
+        len: func() -> u32;
+        
+        /// Check if the list is empty
+        is-empty: func() -> bool;
+        
+        /// Get the deep value of the list as JSON string
+        get-deep-value-json: func() -> string;
+    }
+}
+
+/// The world that exposes Loro CRDT functionality
+world loro {
+    export types;
+    export doc;
+}

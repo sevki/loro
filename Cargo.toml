@@ -13,6 +13,10 @@ members = [
     "crates/delta",
     "crates/kv-store",
     "crates/loro-wasm-tools",
+    "crates/loro-wit",
+]
+exclude = [
+    "examples/wit-demo-wasmtime",
 ]
 resolver = "2"
 

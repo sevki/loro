@@ -1,0 +1,9 @@
+[package]
+name = "loro-wit-demo-wasmtime"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wasmtime = { version = "29.0.0", features = ["component-model"] }
+wasmtime-wasi = "29.0.0"
+anyhow = "1.0"

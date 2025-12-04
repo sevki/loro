@@ -1,0 +1,15 @@
+{
+  "name": "loro-wit-demo-jco",
+  "version": "0.1.0",
+  "description": "Demo of Loro CRDT using WIT interface with JCO",
+  "type": "module",
+  "scripts": {
+    "build-component": "cd ../../crates/loro-wit && cargo component build --release",
+    "transpile": "jco transpile ../../target/wasm32-wasip1/release/loro_wit.wasm -o ./gen",
+    "build": "npm run build-component && npm run transpile",
+    "demo": "node demo.mjs"
+  },
+  "dependencies": {
+    "@bytecodealliance/preview2-shim": "^0.17.0"
+  }
+}
