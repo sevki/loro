@@ -6,7 +6,7 @@
 use anyhow::Result;
 use wasmtime::component::{Component, Linker, ResourceTable};
 use wasmtime::{Config, Engine, Store};
-use wasmtime_wasi::preview2::{WasiCtx, WasiCtxBuilder, WasiView};
+use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiView};
 
 // Generate bindings for the Loro component
 wasmtime::component::bindgen!({
@@ -47,7 +47,7 @@ fn main() -> Result<()> {
 
     // Set up the linker with WASI
     let mut linker = Linker::new(&engine);
-    wasmtime_wasi::preview2::command::add_to_linker(&mut linker)?;
+    wasmtime_wasi::add_to_linker_sync(&mut linker)?;
 
     // Create the store with WASI context
     let wasi_ctx = WasiCtxBuilder::new()
@@ -60,7 +60,7 @@ fn main() -> Result<()> {
     let mut store = Store::new(&engine, state);
 
     // Instantiate the component
-    let (loro, _instance) = LoroWorld::instantiate(&mut store, &component, &linker)?;
+    let loro = LoroWorld::instantiate(&mut store, &component, &linker)?;
 
     // Get the interfaces
     let doc_interface = &loro.loro_crdt_loro_doc();

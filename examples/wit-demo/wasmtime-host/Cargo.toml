@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 description = "Demo of hosting the Loro CRDT WebAssembly Component with wasmtime"
 
+[workspace]
+
 [[bin]]
 name = "loro-wit-demo"
 path = "src/main.rs"
