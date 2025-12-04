@@ -30,6 +30,15 @@ interface loro-doc {
         /// Get a list container by name
         get-list: func(name: string) -> list-handle;
 
+        /// Release a text handle to free memory
+        release-text: func(handle: text-handle) -> bool;
+
+        /// Release a map handle to free memory
+        release-map: func(handle: map-handle) -> bool;
+
+        /// Release a list handle to free memory
+        release-list: func(handle: list-handle) -> bool;
+
         /// Commit pending changes with an optional message
         commit: func(message: option<string>);
 
