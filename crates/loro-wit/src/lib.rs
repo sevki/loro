@@ -72,19 +72,19 @@ impl HandleStorage {
     }
 }
 
-thread_local! {
-    static HANDLE_STORAGE: RefCell<HandleStorage> = RefCell::new(HandleStorage::new());
-}
+// Removed global thread-local HANDLE_STORAGE.
 
 /// The Loro document resource implementation
 pub struct Doc {
     inner: LoroDoc,
+    handle_storage: HandleStorage,
 }
 
 impl GuestDoc for Doc {
     fn new() -> Self {
         Self {
             inner: LoroDoc::new(),
+            handle_storage: HandleStorage::new(),
         }
     }
 
