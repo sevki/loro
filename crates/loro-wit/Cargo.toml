@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 loro = { path = "../loro" }
-wit-bindgen-rt = "0.36"
+wit-bindgen-rt = "0.41"
 serde_json = { workspace = true }
 
 [package.metadata.component]

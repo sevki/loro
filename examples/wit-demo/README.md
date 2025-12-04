@@ -122,7 +122,7 @@ See `crates/loro-wit/wit/loro.wit` for the full interface definition.
 
 ## Requirements
 
-- Rust 1.85+ with `wasm32-wasip1` target
+- Rust 1.83+ with `wasm32-wasip1` target
 - [cargo-component](https://github.com/bytecodealliance/cargo-component)
 - Node.js 18+ (for jco demo)
 - npm or pnpm

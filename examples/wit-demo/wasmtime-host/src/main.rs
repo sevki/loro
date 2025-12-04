@@ -6,7 +6,7 @@
 use anyhow::Result;
 use wasmtime::component::{Component, Linker, ResourceTable};
 use wasmtime::{Config, Engine, Store};
-use wasmtime_wasi::preview2::{WasiCtx, WasiCtxBuilder, WasiView};
+use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiView};
 
 // Generate bindings for the Loro component
 wasmtime::component::bindgen!({
