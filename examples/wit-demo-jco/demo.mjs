@@ -1,71 +1,92 @@
 // Loro WIT Demo with JCO
-// This demonstrates using Loro CRDTs through the WebAssembly Component Model
+// This demonstrates collaborative editing using Loro CRDTs through the WebAssembly Component Model
+// Two peers make concurrent edits and sync with each other
 
 import { doc } from './gen/loro_wit.js';
 
 const { LoroDoc } = doc;
 
 async function main() {
-    console.log("=== Loro WIT Demo with JCO ===\n");
+    console.log("=== Loro WIT Collaborative Editing Demo ===\n");
+    console.log("Simulating two peers (Alice and Bob) collaborating on a document\n");
 
-    // Create a new document
-    console.log("Creating new LoroDoc...");
-    const doc1 = new LoroDoc();
-    console.log(`Document peer ID: ${doc1.peerId()}`);
+    // Create two documents representing different peers
+    const aliceDoc = new LoroDoc();
+    aliceDoc.setPeerId(1n);
+    const bobDoc = new LoroDoc();
+    bobDoc.setPeerId(2n);
 
-    // Work with text
-    console.log("\n--- Text Operations ---");
-    const text = doc1.getText("content");
-    text.insert(0, "Hello, ");
-    text.insert(7, "World!");
-    console.log(`Text content: "${text.toString()}"`);
-    console.log(`Text length (unicode): ${text.lenUnicode()}`);
+    console.log(`Alice's peer ID: ${aliceDoc.peerId()}`);
+    console.log(`Bob's peer ID: ${bobDoc.peerId()}`);
 
-    // Work with map
-    console.log("\n--- Map Operations ---");
-    const map = doc1.getMap("metadata");
-    map.insertString("title", "My Document");
-    map.insertI64("version", 1n);
-    map.insertBool("published", false);
-    console.log(`Map keys: ${map.keys().join(", ")}`);
-    console.log(`Map value: ${map.getDeepValueJson()}`);
+    // === Round 1: Initial edits ===
+    console.log("\n--- Round 1: Initial Edits ---");
+    
+    // Alice creates the document structure
+    console.log("\nAlice: Creating initial document...");
+    aliceDoc.getText("content").insert(0, "Hello");
+    aliceDoc.getMap("metadata").insertString("author", "Alice");
+    aliceDoc.getList("tasks").pushString("Task 1");
+    aliceDoc.commit();
+    console.log(`Alice's doc: ${aliceDoc.getDeepValueJson()}`);
 
-    // Work with list
-    console.log("\n--- List Operations ---");
-    const list = doc1.getList("items");
-    list.pushString("First item");
-    list.pushString("Second item");
-    list.pushI64(42n);
-    console.log(`List length: ${list.len()}`);
-    console.log(`List value: ${list.getDeepValueJson()}`);
+    // Sync Alice -> Bob
+    console.log("\n[Sync] Alice -> Bob");
+    const aliceUpdates1 = aliceDoc.exportUpdates();
+    bobDoc.importBytes(aliceUpdates1);
+    console.log(`Bob received ${aliceUpdates1.length} bytes`);
+    console.log(`Bob's doc after sync: ${bobDoc.getDeepValueJson()}`);
 
-    // Commit changes
-    doc1.commit();
+    // === Round 2: Concurrent edits ===
+    console.log("\n--- Round 2: Concurrent Edits (Both peers edit simultaneously) ---");
 
-    // Export and import
-    console.log("\n--- Export/Import ---");
-    const snapshot = doc1.exportSnapshot();
-    console.log(`Snapshot size: ${snapshot.length} bytes`);
+    // Alice edits
+    console.log("\nAlice: Adding more content...");
+    aliceDoc.getText("content").insert(5, " World");
+    aliceDoc.getList("tasks").pushString("Task 2 (Alice)");
+    aliceDoc.commit();
+    console.log(`Alice's doc: ${aliceDoc.getDeepValueJson()}`);
 
-    // Create another document and import
-    const doc2 = new LoroDoc();
-    doc2.importBytes(snapshot);
-    console.log(`Doc2 text: "${doc2.getText("content").toString()}"`);
+    // Bob edits concurrently (without seeing Alice's changes yet)
+    console.log("\nBob: Making concurrent edits...");
+    bobDoc.getText("content").insert(5, "!");  // Will merge with Alice's " World"
+    bobDoc.getMap("metadata").insertString("reviewer", "Bob");
+    bobDoc.getList("tasks").pushString("Task 3 (Bob)");
+    bobDoc.commit();
+    console.log(`Bob's doc (before sync): ${bobDoc.getDeepValueJson()}`);
 
-    // Fork demonstration
-    console.log("\n--- Fork ---");
-    const forked = doc1.fork();
-    console.log(`Original peer: ${doc1.peerId()}`);
-    console.log(`Forked peer: ${forked.peerId()}`);
+    // === Round 3: Bidirectional sync ===
+    console.log("\n--- Round 3: Bidirectional Sync ---");
 
-    // Make changes in forked
-    forked.getText("content").insert(0, "[Forked] ");
-    forked.commit();
-    console.log(`Forked text: "${forked.getText("content").toString()}"`);
+    // Sync Alice -> Bob
+    console.log("\n[Sync] Alice -> Bob");
+    const aliceUpdates2 = aliceDoc.exportUpdates();
+    bobDoc.importBytes(aliceUpdates2);
+    console.log(`Bob's doc after receiving Alice's updates: ${bobDoc.getDeepValueJson()}`);
 
-    // Get deep value
-    console.log("\n--- Full Document State ---");
-    console.log(doc1.getDeepValueJson());
+    // Sync Bob -> Alice
+    console.log("\n[Sync] Bob -> Alice");
+    const bobUpdates = bobDoc.exportUpdates();
+    aliceDoc.importBytes(bobUpdates);
+    console.log(`Alice's doc after receiving Bob's updates: ${aliceDoc.getDeepValueJson()}`);
+
+    // === Verify convergence ===
+    console.log("\n--- Verification: Both Documents Converged ---");
+    console.log(`Alice's final state: ${aliceDoc.getDeepValueJson()}`);
+    console.log(`Bob's final state:   ${bobDoc.getDeepValueJson()}`);
+    
+    const aliceState = aliceDoc.getDeepValueJson();
+    const bobState = bobDoc.getDeepValueJson();
+    if (aliceState === bobState) {
+        console.log("\n✓ SUCCESS: Both documents have converged to the same state!");
+    } else {
+        console.log("\n✗ Documents differ (this shouldn't happen with CRDTs)");
+    }
+
+    // Show version info
+    console.log("\n--- Version Information ---");
+    console.log(`Alice's frontiers: ${JSON.stringify(aliceDoc.stateFrontiers())}`);
+    console.log(`Bob's frontiers: ${JSON.stringify(bobDoc.stateFrontiers())}`);
 
     console.log("\n=== Demo Complete ===");
 }

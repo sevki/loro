@@ -1,10 +1,7 @@
-//! Loro WIT Demo with Wasmtime
+//! Loro WIT Collaborative Editing Demo with Wasmtime
 //!
-//! This demonstrates using Loro CRDTs through the WebAssembly Component Model
-//! with Wasmtime as the host runtime.
-//!
-//! Note: This demo requires wasmtime with component-model support and proper
-//! WASI bindings. The bindings are generated from the WIT interface.
+//! This demonstrates two peers collaborating on a document using Loro CRDTs
+//! through the WebAssembly Component Model with Wasmtime as the host runtime.
 
 use anyhow::Result;
 use std::path::PathBuf;
@@ -34,7 +31,8 @@ impl WasiView for HostState {
 }
 
 fn main() -> Result<()> {
-    println!("=== Loro WIT Demo with Wasmtime ===\n");
+    println!("=== Loro WIT Collaborative Editing Demo with Wasmtime ===\n");
+    println!("Simulating two peers (Alice and Bob) collaborating on a document\n");
 
     // Create engine with component model support
     let mut config = Config::new();
@@ -78,91 +76,110 @@ fn main() -> Result<()> {
 
     // Instantiate the component
     let instance = Loro::instantiate(&mut store, &component, &linker)?;
-
-    // Access the doc interface
     let doc_iface = instance.component_loro_wit_doc();
 
-    // Create a new document
-    println!("Creating new LoroDoc...");
-    let doc = doc_iface.loro_doc().call_constructor(&mut store)?;
+    // Create two documents representing different peers
+    let alice_doc = doc_iface.loro_doc().call_constructor(&mut store)?;
+    doc_iface.loro_doc().call_set_peer_id(&mut store, alice_doc, 1)?
+        .map_err(|e| anyhow::anyhow!("Set peer ID failed: {:?}", e))?;
+    
+    let bob_doc = doc_iface.loro_doc().call_constructor(&mut store)?;
+    doc_iface.loro_doc().call_set_peer_id(&mut store, bob_doc, 2)?
+        .map_err(|e| anyhow::anyhow!("Set peer ID failed: {:?}", e))?;
 
-    let peer_id = doc_iface.loro_doc().call_peer_id(&mut store, doc)?;
-    println!("Document peer ID: {}", peer_id);
+    println!("Alice's peer ID: {}", doc_iface.loro_doc().call_peer_id(&mut store, alice_doc)?);
+    println!("Bob's peer ID: {}", doc_iface.loro_doc().call_peer_id(&mut store, bob_doc)?);
 
-    // Work with text
-    println!("\n--- Text Operations ---");
-    let text = doc_iface.loro_doc().call_get_text(&mut store, doc, "content")?;
-
-    doc_iface
-        .loro_text()
-        .call_insert(&mut store, text, 0, "Hello, ")?
+    // === Round 1: Alice creates initial document ===
+    println!("\n--- Round 1: Initial Edits ---");
+    println!("\nAlice: Creating initial document...");
+    
+    let alice_text = doc_iface.loro_doc().call_get_text(&mut store, alice_doc, "content")?;
+    doc_iface.loro_text().call_insert(&mut store, alice_text, 0, "Hello")?
         .map_err(|e| anyhow::anyhow!("Insert failed: {:?}", e))?;
     
-    doc_iface
-        .loro_text()
-        .call_insert(&mut store, text, 7, "World!")?
-        .map_err(|e| anyhow::anyhow!("Insert failed: {:?}", e))?;
-
-    let text_content = doc_iface.loro_text().call_to_string(&mut store, text)?;
-    println!("Text content: \"{}\"", text_content);
-
-    let text_len = doc_iface.loro_text().call_len_unicode(&mut store, text)?;
-    println!("Text length (unicode): {}", text_len);
-
-    // Work with map
-    println!("\n--- Map Operations ---");
-    let map = doc_iface.loro_doc().call_get_map(&mut store, doc, "metadata")?;
-
-    doc_iface
-        .loro_map()
-        .call_insert_string(&mut store, map, "title", "My Document")?
+    let alice_map = doc_iface.loro_doc().call_get_map(&mut store, alice_doc, "metadata")?;
+    doc_iface.loro_map().call_insert_string(&mut store, alice_map, "author", "Alice")?
         .map_err(|e| anyhow::anyhow!("Insert failed: {:?}", e))?;
     
-    doc_iface
-        .loro_map()
-        .call_insert_i64(&mut store, map, "version", 1)?
-        .map_err(|e| anyhow::anyhow!("Insert failed: {:?}", e))?;
-
-    let keys = doc_iface.loro_map().call_keys(&mut store, map)?;
-    println!("Map keys: {}", keys.join(", "));
-
-    let map_json = doc_iface.loro_map().call_get_deep_value_json(&mut store, map)?;
-    println!("Map value: {}", map_json);
-
-    // Work with list
-    println!("\n--- List Operations ---");
-    let list = doc_iface.loro_doc().call_get_list(&mut store, doc, "items")?;
-
-    doc_iface
-        .loro_list()
-        .call_push_string(&mut store, list, "First item")?
+    let alice_list = doc_iface.loro_doc().call_get_list(&mut store, alice_doc, "tasks")?;
+    doc_iface.loro_list().call_push_string(&mut store, alice_list, "Task 1")?
         .map_err(|e| anyhow::anyhow!("Push failed: {:?}", e))?;
     
-    doc_iface
-        .loro_list()
-        .call_push_i64(&mut store, list, 42)?
-        .map_err(|e| anyhow::anyhow!("Push failed: {:?}", e))?;
+    doc_iface.loro_doc().call_commit(&mut store, alice_doc)?;
+    println!("Alice's doc: {}", doc_iface.loro_doc().call_get_deep_value_json(&mut store, alice_doc)?);
 
-    let list_len = doc_iface.loro_list().call_len(&mut store, list)?;
-    println!("List length: {}", list_len);
-
-    let list_json = doc_iface.loro_list().call_get_deep_value_json(&mut store, list)?;
-    println!("List value: {}", list_json);
-
-    // Commit and export
-    println!("\n--- Export ---");
-    doc_iface.loro_doc().call_commit(&mut store, doc)?;
-
-    let snapshot = doc_iface
-        .loro_doc()
-        .call_export_snapshot(&mut store, doc)?
+    // Sync Alice -> Bob
+    println!("\n[Sync] Alice -> Bob");
+    let alice_updates = doc_iface.loro_doc().call_export_updates(&mut store, alice_doc)?
         .map_err(|e| anyhow::anyhow!("Export failed: {:?}", e))?;
-    println!("Snapshot size: {} bytes", snapshot.len());
+    doc_iface.loro_doc().call_import_bytes(&mut store, bob_doc, &alice_updates)?
+        .map_err(|e| anyhow::anyhow!("Import failed: {:?}", e))?;
+    println!("Bob received {} bytes", alice_updates.len());
+    println!("Bob's doc after sync: {}", doc_iface.loro_doc().call_get_deep_value_json(&mut store, bob_doc)?);
 
-    // Get full document state
-    println!("\n--- Full Document State ---");
-    let deep_value = doc_iface.loro_doc().call_get_deep_value_json(&mut store, doc)?;
-    println!("{}", deep_value);
+    // === Round 2: Concurrent edits ===
+    println!("\n--- Round 2: Concurrent Edits ---");
+    
+    // Alice edits
+    println!("\nAlice: Adding more content...");
+    doc_iface.loro_text().call_insert(&mut store, alice_text, 5, " World")?
+        .map_err(|e| anyhow::anyhow!("Insert failed: {:?}", e))?;
+    doc_iface.loro_list().call_push_string(&mut store, alice_list, "Task 2 (Alice)")?
+        .map_err(|e| anyhow::anyhow!("Push failed: {:?}", e))?;
+    doc_iface.loro_doc().call_commit(&mut store, alice_doc)?;
+    println!("Alice's doc: {}", doc_iface.loro_doc().call_get_deep_value_json(&mut store, alice_doc)?);
+
+    // Bob edits concurrently
+    println!("\nBob: Making concurrent edits...");
+    let bob_text = doc_iface.loro_doc().call_get_text(&mut store, bob_doc, "content")?;
+    doc_iface.loro_text().call_insert(&mut store, bob_text, 5, "!")?
+        .map_err(|e| anyhow::anyhow!("Insert failed: {:?}", e))?;
+    
+    let bob_map = doc_iface.loro_doc().call_get_map(&mut store, bob_doc, "metadata")?;
+    doc_iface.loro_map().call_insert_string(&mut store, bob_map, "reviewer", "Bob")?
+        .map_err(|e| anyhow::anyhow!("Insert failed: {:?}", e))?;
+    
+    let bob_list = doc_iface.loro_doc().call_get_list(&mut store, bob_doc, "tasks")?;
+    doc_iface.loro_list().call_push_string(&mut store, bob_list, "Task 3 (Bob)")?
+        .map_err(|e| anyhow::anyhow!("Push failed: {:?}", e))?;
+    
+    doc_iface.loro_doc().call_commit(&mut store, bob_doc)?;
+    println!("Bob's doc (before sync): {}", doc_iface.loro_doc().call_get_deep_value_json(&mut store, bob_doc)?);
+
+    // === Round 3: Bidirectional sync ===
+    println!("\n--- Round 3: Bidirectional Sync ---");
+    
+    // Sync Alice -> Bob
+    println!("\n[Sync] Alice -> Bob");
+    let alice_updates2 = doc_iface.loro_doc().call_export_updates(&mut store, alice_doc)?
+        .map_err(|e| anyhow::anyhow!("Export failed: {:?}", e))?;
+    doc_iface.loro_doc().call_import_bytes(&mut store, bob_doc, &alice_updates2)?
+        .map_err(|e| anyhow::anyhow!("Import failed: {:?}", e))?;
+    println!("Bob's doc after receiving Alice's updates: {}", 
+        doc_iface.loro_doc().call_get_deep_value_json(&mut store, bob_doc)?);
+
+    // Sync Bob -> Alice
+    println!("\n[Sync] Bob -> Alice");
+    let bob_updates = doc_iface.loro_doc().call_export_updates(&mut store, bob_doc)?
+        .map_err(|e| anyhow::anyhow!("Export failed: {:?}", e))?;
+    doc_iface.loro_doc().call_import_bytes(&mut store, alice_doc, &bob_updates)?
+        .map_err(|e| anyhow::anyhow!("Import failed: {:?}", e))?;
+    println!("Alice's doc after receiving Bob's updates: {}", 
+        doc_iface.loro_doc().call_get_deep_value_json(&mut store, alice_doc)?);
+
+    // === Verify convergence ===
+    println!("\n--- Verification: Both Documents Converged ---");
+    let alice_state = doc_iface.loro_doc().call_get_deep_value_json(&mut store, alice_doc)?;
+    let bob_state = doc_iface.loro_doc().call_get_deep_value_json(&mut store, bob_doc)?;
+    println!("Alice's final state: {}", alice_state);
+    println!("Bob's final state:   {}", bob_state);
+    
+    if alice_state == bob_state {
+        println!("\n✓ SUCCESS: Both documents have converged to the same state!");
+    } else {
+        println!("\n✗ Documents differ (this shouldn't happen with CRDTs)");
+    }
 
     println!("\n=== Demo Complete ===");
     Ok(())

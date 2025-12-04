@@ -1,6 +1,8 @@
-# Loro WIT Demo with JCO
+# Loro WIT Collaborative Editing Demo with JCO
 
-This example demonstrates using Loro CRDTs through the WebAssembly Component Model with [JCO](https://github.com/bytecodealliance/jco) (JavaScript Component Tools).
+This example demonstrates **collaborative editing** using Loro CRDTs through the WebAssembly Component Model with [JCO](https://github.com/bytecodealliance/jco) (JavaScript Component Tools).
+
+The demo simulates two peers (Alice and Bob) making concurrent edits to a shared document and syncing their changes, demonstrating CRDT convergence.
 
 ## Prerequisites
 
@@ -26,12 +28,21 @@ This example demonstrates using Loro CRDTs through the WebAssembly Component Mod
    npm run demo
    ```
 
+## What the Demo Shows
+
+1. **Two peers created**: Alice (peer 1) and Bob (peer 2)
+2. **Initial sync**: Alice creates a document, syncs to Bob
+3. **Concurrent edits**: Both peers edit simultaneously without seeing each other's changes
+4. **Bidirectional sync**: Updates are exchanged between peers
+5. **Convergence verification**: Both documents end up with the same state
+
 ## How it works
 
 1. The `loro-wit` crate defines a WIT (WebAssembly Interface Types) interface for Loro CRDTs
 2. `cargo component build` compiles the Rust code to a WebAssembly Component
 3. `jco transpile` generates JavaScript/TypeScript bindings from the component
-4. The demo script imports and uses these bindings to work with Loro documents
+4. The demo script creates two LoroDoc instances representing different peers
+5. Peers exchange updates via `exportUpdates()` and `importBytes()` to sync
 
 ## Available Operations
 
@@ -45,30 +56,22 @@ This example demonstrates using Loro CRDTs through the WebAssembly Component Mod
 - `commit()` - Commit pending changes
 - `exportSnapshot()` - Export document as snapshot
 - `exportUpdates()` - Export all updates
-- `importBytes(data)` - Import data
+- `importBytes(data)` - Import data from another peer
 - `fork()` - Create a fork with new peer ID
 
 ### LoroText
 - `insert(pos, text)` - Insert text
 - `delete(pos, len)` - Delete text
 - `toString()` - Get content as string
-- `lenUnicode()` - Get length in unicode chars
-- `isEmpty()` - Check if empty
 
 ### LoroMap
 - `insertString(key, value)` - Insert string
 - `insertI64(key, value)` - Insert integer
-- `insertBool(key, value)` - Insert boolean
 - `delete(key)` - Delete key
-- `getJson(key)` - Get value as JSON
 - `keys()` - Get all keys
-- `getDeepValueJson()` - Get full map as JSON
 
 ### LoroList
-- `insertString(pos, value)` - Insert string at position
 - `pushString(value)` - Push string to end
 - `pushI64(value)` - Push integer to end
 - `delete(pos, len)` - Delete items
-- `getJson(index)` - Get item as JSON
 - `len()` - Get length
-- `getDeepValueJson()` - Get full list as JSON
