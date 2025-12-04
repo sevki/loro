@@ -1,0 +1,60 @@
+name: Test WIT Component
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - 'crates/loro-wit/**'
+      - 'examples/wit-demo-jco/**'
+      - 'examples/wit-demo-wasmtime/**'
+  pull_request:
+    branches: ["main"]
+    paths:
+      - 'crates/loro-wit/**'
+      - 'examples/wit-demo-jco/**'
+      - 'examples/wit-demo-wasmtime/**'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test-wit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup target add wasm32-wasip1
+
+      - name: Install cargo-component
+        run: cargo install cargo-component
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Install jco
+        run: npm install -g @bytecodealliance/jco
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build WIT component
+        run: |
+          cd crates/loro-wit
+          cargo component build --release
+
+      - name: Test JCO demo
+        run: |
+          cd examples/wit-demo-jco
+          npm install
+          jco transpile ../../target/wasm32-wasip1/release/loro_wit.wasm -o ./gen
+          node demo.mjs
+
+      - name: Test Wasmtime demo
+        run: |
+          cd examples/wit-demo-wasmtime
+          cargo build
+          cargo run

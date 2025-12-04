@@ -4,6 +4,12 @@ WebAssembly Component Model interface for Loro CRDTs.
 
 This crate provides a [WIT](https://github.com/WebAssembly/component-model/blob/main/design/mvp/WIT.md) (WebAssembly Interface Types) interface for Loro CRDTs, enabling usage from any language that supports the WebAssembly Component Model.
 
+## Collaborative Editing Demo
+
+![Loro WIT Collaborative Editing Demos](https://github.com/user-attachments/assets/49ce9441-6b79-4fd4-ba95-871cb7ed990c)
+
+The demos show two peers (Alice and Bob) making concurrent edits and syncing via CRDT, demonstrating convergence.
+
 ## Building
 
 Requires `cargo-component`:
