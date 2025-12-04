@@ -21,6 +21,10 @@ use loro::{
 /// Global storage for container handles
 /// This maps handle IDs to their container names, allowing us to
 /// reconstruct containers from handles
+///
+/// Note: Handle IDs are allocated from a u64 counter. While overflow is extremely
+/// unlikely in practice (would require 2^64 handle allocations), the register
+/// methods will return an error if the counter overflows.
 struct HandleStorage {
     next_id: u64,
     text_names: HashMap<u64, String>,
@@ -38,25 +42,34 @@ impl HandleStorage {
         }
     }
 
-    fn register_text(&mut self, name: String) -> u64 {
+    fn register_text(&mut self, name: String) -> Result<u64, &'static str> {
         let id = self.next_id;
-        self.next_id += 1;
+        self.next_id = self
+            .next_id
+            .checked_add(1)
+            .ok_or("Handle ID counter overflow")?;
         self.text_names.insert(id, name);
-        id
+        Ok(id)
     }
 
-    fn register_map(&mut self, name: String) -> u64 {
+    fn register_map(&mut self, name: String) -> Result<u64, &'static str> {
         let id = self.next_id;
-        self.next_id += 1;
+        self.next_id = self
+            .next_id
+            .checked_add(1)
+            .ok_or("Handle ID counter overflow")?;
         self.map_names.insert(id, name);
-        id
+        Ok(id)
     }
 
-    fn register_list(&mut self, name: String) -> u64 {
+    fn register_list(&mut self, name: String) -> Result<u64, &'static str> {
         let id = self.next_id;
-        self.next_id += 1;
+        self.next_id = self
+            .next_id
+            .checked_add(1)
+            .ok_or("Handle ID counter overflow")?;
         self.list_names.insert(id, name);
-        id
+        Ok(id)
     }
 
     fn get_text_name(&self, id: u64) -> Option<String> {
@@ -69,6 +82,21 @@ impl HandleStorage {
 
     fn get_list_name(&self, id: u64) -> Option<String> {
         self.list_names.get(&id).cloned()
+    }
+
+    /// Remove a text handle from storage, freeing memory
+    fn unregister_text(&mut self, id: u64) -> bool {
+        self.text_names.remove(&id).is_some()
+    }
+
+    /// Remove a map handle from storage, freeing memory
+    fn unregister_map(&mut self, id: u64) -> bool {
+        self.map_names.remove(&id).is_some()
+    }
+
+    /// Remove a list handle from storage, freeing memory
+    fn unregister_list(&mut self, id: u64) -> bool {
+        self.list_names.remove(&id).is_some()
     }
 }
 
@@ -102,22 +130,49 @@ impl GuestDoc for Doc {
         // Get or create the text container to ensure it exists
         let cloned_name = name.clone();
         let _ = self.inner.get_text(cloned_name);
-        let id = HANDLE_STORAGE.with(|storage| storage.borrow_mut().register_text(name));
+        let id = HANDLE_STORAGE.with(|storage| {
+            storage
+                .borrow_mut()
+                .register_text(name)
+                .expect("Handle ID counter overflow - too many handles created")
+        });
         TextHandle { id }
     }
 
     fn get_map(&self, name: String) -> MapHandle {
         let cloned_name = name.clone();
         let _ = self.inner.get_map(cloned_name);
-        let id = HANDLE_STORAGE.with(|storage| storage.borrow_mut().register_map(name));
+        let id = HANDLE_STORAGE.with(|storage| {
+            storage
+                .borrow_mut()
+                .register_map(name)
+                .expect("Handle ID counter overflow - too many handles created")
+        });
         MapHandle { id }
     }
 
     fn get_list(&self, name: String) -> ListHandle {
         let cloned_name = name.clone();
         let _ = self.inner.get_list(cloned_name);
-        let id = HANDLE_STORAGE.with(|storage| storage.borrow_mut().register_list(name));
+        let id = HANDLE_STORAGE.with(|storage| {
+            storage
+                .borrow_mut()
+                .register_list(name)
+                .expect("Handle ID counter overflow - too many handles created")
+        });
         ListHandle { id }
+    }
+
+    fn release_text(&self, handle: TextHandle) -> bool {
+        HANDLE_STORAGE.with(|storage| storage.borrow_mut().unregister_text(handle.id))
+    }
+
+    fn release_map(&self, handle: MapHandle) -> bool {
+        HANDLE_STORAGE.with(|storage| storage.borrow_mut().unregister_map(handle.id))
+    }
+
+    fn release_list(&self, handle: ListHandle) -> bool {
+        HANDLE_STORAGE.with(|storage| storage.borrow_mut().unregister_list(handle.id))
     }
 
     fn commit(&self, message: Option<String>) {
